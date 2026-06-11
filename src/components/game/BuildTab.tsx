@@ -41,7 +41,7 @@ export default function BuildTab({ player, session }: { player: Player; session:
         </div>
       )}
 
-      {BUILDINGS.filter(b => b.type !== 'guild').map(b => {
+      {BUILDINGS.map(b => {
         const affordable = canAfford(player.resources, b.cost)
         return (
           <div

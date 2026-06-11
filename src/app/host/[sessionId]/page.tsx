@@ -14,13 +14,20 @@ export default function HostPanel() {
   const [session,  setSession]  = useState<Session | null>(null)
   const [players,  setPlayers]  = useState<Player[]>([])
   const [loading,  setLoading]  = useState(false)
+  const [isHost,   setIsHost]   = useState(false)
+
+  // How long the brief "production" animation runs before trading auto-opens.
+  const PRODUCTION_MS = 3000
 
   useEffect(() => {
     const hostId = localStorage.getItem('sundaymarket_host_id')
     if (!hostId) { router.push('/'); return }
 
     supabase.from('sessions').select('*').eq('id', sessionId).single()
-      .then(({ data }) => { if (data && data.host_id === hostId) setSession(data) })
+      .then(({ data }) => {
+        if (data && data.host_id === hostId) { setSession(data); setIsHost(true) }
+        else if (data) { setSession(data) } // viewer without control
+      })
 
     supabase.from('players').select('*').eq('session_id', sessionId)
       .then(({ data }) => { if (data) setPlayers(data) })
@@ -39,59 +46,70 @@ export default function HostPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
+  // Self-healing production → trading transition. Driven by phase_started_at, so
+  // it survives a host reload/crash mid-production (the old detached setTimeout
+  // would strand the game in 'production' forever if the tab closed). The
+  // `.eq('phase','production')` guard makes concurrent host tabs a safe no-op.
+  useEffect(() => {
+    if (!isHost || !session) return
+    if (session.phase !== 'production' || !session.phase_started_at) return
+
+    const elapsed = Date.now() - new Date(session.phase_started_at).getTime()
+    const delay = Math.max(0, PRODUCTION_MS - elapsed)
+    const id = setTimeout(() => {
+      supabase.from('sessions')
+        .update({ phase: 'trading', phase_started_at: new Date().toISOString() })
+        .eq('id', sessionId)
+        .eq('phase', 'production')
+    }, delay)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHost, session?.phase, session?.phase_started_at])
+
+  // Start a production round: pick the world event, run production server-side,
+  // then flip to 'production'. Trading opens via the self-healing effect above.
+  async function beginProduction(round: number) {
+    const event = WORLD_EVENTS[Math.floor(Math.random() * WORLD_EVENTS.length)]
+    await supabase.from('sessions').update({
+      phase: 'production',
+      round,
+      world_event: event,
+      phase_started_at: new Date().toISOString(),
+    }).eq('id', sessionId)
+    await supabase.rpc('run_production', { p_session_id: sessionId })
+  }
+
   async function advancePhase() {
-    if (!session) return
+    if (!session || !isHost) return
     setLoading(true)
 
-    if (session.phase === 'building') {
-      // End of round: check if max rounds reached
-      if (session.round >= session.max_rounds) {
-        await supabase.from('sessions').update({ phase: 'ended' }).eq('id', sessionId)
-      } else {
-        // Pick random world event for next round
-        const event = WORLD_EVENTS[Math.floor(Math.random() * WORLD_EVENTS.length)]
-        await supabase.from('sessions').update({
-          phase: 'production',
-          round: session.round + 1,
-          world_event: event,
-          phase_started_at: new Date().toISOString(),
-        }).eq('id', sessionId)
-        // Run production
-        await supabase.rpc('run_production', { p_session_id: sessionId })
-        // Auto-advance to trading after 3 seconds
-        setTimeout(async () => {
-          await supabase.from('sessions').update({
-            phase: 'trading',
-            phase_started_at: new Date().toISOString(),
-          }).eq('id', sessionId)
-        }, 3000)
-      }
-    } else if (session.phase === 'lobby') {
-      // Start game: round 1, first production
-      const event = WORLD_EVENTS[Math.floor(Math.random() * WORLD_EVENTS.length)]
-      await supabase.from('sessions').update({
-        phase: 'production',
-        round: 1,
-        world_event: event,
-        phase_started_at: new Date().toISOString(),
-      }).eq('id', sessionId)
-      await supabase.rpc('run_production', { p_session_id: sessionId })
-      setTimeout(async () => {
-        await supabase.from('sessions').update({
-          phase: 'trading',
-          phase_started_at: new Date().toISOString(),
-        }).eq('id', sessionId)
-      }, 3000)
+    if (session.phase === 'lobby') {
+      if (players.length < 1) { setLoading(false); return }
+      await beginProduction(1)
+    } else if (session.phase === 'production') {
+      // Manual override: open trading immediately.
+      await supabase.from('sessions')
+        .update({ phase: 'trading', phase_started_at: new Date().toISOString() })
+        .eq('id', sessionId).eq('phase', 'production')
     } else if (session.phase === 'trading') {
+      // Close the market: expire any unanswered offers, then open building.
+      await supabase.rpc('expire_pending_trades', { p_session_id: sessionId })
       await supabase.from('sessions').update({ phase: 'building' }).eq('id', sessionId)
+    } else if (session.phase === 'building') {
+      if (session.round >= session.max_rounds) {
+        // finalize_game resolves end-game missions AND flips phase to 'ended'.
+        await supabase.rpc('finalize_game', { p_session_id: sessionId })
+      } else {
+        await beginProduction(session.round + 1)
+      }
     }
 
     setLoading(false)
   }
 
   const phaseButtonLabel: Record<string, string> = {
-    lobby:      `Start game (${players.length} players joined)`,
-    production: 'Open trading',
+    lobby:      players.length < 1 ? 'Waiting for players…' : `Start game (${players.length} player${players.length === 1 ? '' : 's'})`,
+    production: 'Open trading now',
     trading:    'Close trading → Building',
     building:   session?.round === session?.max_rounds ? 'End game' : 'Next round',
     ended:      'Game ended',
@@ -142,11 +160,19 @@ export default function HostPanel() {
 
         <button
           onClick={advancePhase}
-          disabled={loading || session.phase === 'ended'}
-          className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-40"
+          disabled={
+            loading ||
+            !isHost ||
+            session.phase === 'ended' ||
+            (session.phase === 'lobby' && players.length < 1)
+          }
+          className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? 'Working…' : phaseButtonLabel[session.phase]}
         </button>
+        {!isHost && (
+          <p className="text-center text-[#8A9BB0] text-xs">View only — open this game on the host device to control it.</p>
+        )}
       </div>
 
       {/* Players list */}

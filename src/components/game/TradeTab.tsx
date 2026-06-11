@@ -42,6 +42,12 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
 
   async function sendOffer() {
     if (!targetPlayer) return
+    if (targetPlayer.id === player.id) {
+      setFeedback('You can’t trade with yourself.'); setView('main'); setTargetPlayer(null); setTargetPlayerId(null); return
+    }
+    if (targetPlayer.session_id !== player.session_id) {
+      setFeedback('That player is in a different game.'); setView('main'); setTargetPlayer(null); setTargetPlayerId(null); return
+    }
     const totalOffer   = Object.values(offer).reduce((a, b) => a + b, 0)
     const totalRequest = Object.values(request).reduce((a, b) => a + b, 0)
     if (totalOffer === 0 && totalRequest === 0) { setFeedback('Add something to the trade.'); return }

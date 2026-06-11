@@ -53,15 +53,25 @@ export default function HomePage() {
     setError('')
     setLoading(true)
     const hostId = crypto.randomUUID()
-    const code   = generateSessionCode()
 
-    const { data: session, error: err } = await supabase
-      .from('sessions')
-      .insert({ code, host_id: hostId, phase: 'lobby', round: 0, max_rounds: 6 })
-      .select()
-      .single()
+    // The code space is small (8 words × 90 numbers), so collisions happen.
+    // Retry with a fresh code on the unique-constraint violation (Postgres 23505).
+    let session = null
+    for (let attempt = 0; attempt < 8 && !session; attempt++) {
+      const { data, error: err } = await supabase
+        .from('sessions')
+        .insert({ code: generateSessionCode(), host_id: hostId, phase: 'lobby', round: 0, max_rounds: 6 })
+        .select()
+        .single()
 
-    if (err || !session) { setError('Could not create session.'); setLoading(false); return }
+      if (data) { session = data; break }
+      if (err && err.code !== '23505') {
+        setError('Could not create session.'); setLoading(false); return
+      }
+      // else: duplicate code — loop and try another
+    }
+
+    if (!session) { setError('Could not create session. Try again.'); setLoading(false); return }
 
     localStorage.setItem('sundaymarket_host_id', hostId)
     router.push(`/host/${session.id}`)

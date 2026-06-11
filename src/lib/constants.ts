@@ -56,21 +56,21 @@ export const BUILDINGS: BuildingDef[] = [
     label: 'Market',
     cost: { wood: 2, stone: 2, food: 2, gold: 0 },
     points: 70,
-    description: 'Earns +5 points per trade you make for the rest of the game. Stonemasons and Farmers get a bonus.',
+    description: 'A grand trading hub. High flat reward. Stonemasons and Farmers get a bonus.',
   },
   {
     type: 'castle',
     label: 'Castle',
     cost: { wood: 3, stone: 3, food: 2, gold: 2 },
     points: 150,
-    description: 'The biggest individual build. Needs gold. Gold Miners get a bonus.',
+    description: 'The biggest common build. Needs gold. Gold Miners get a bonus.',
   },
   {
     type: 'guild',
     label: 'Guild Hall',
     cost: { wood: 4, stone: 4, food: 3, gold: 1 },
     points: 200,
-    description: 'Requires 2–3 players to build together. Massive reward.',
+    description: 'The ultimate build — needs a bit of everything, gold included. Gold Miners get a bonus.',
   },
 ]
 
@@ -78,16 +78,16 @@ export const MISSIONS: Record<MissionType, { label: string; description: string;
   architect:      { label: 'The Architect',      description: 'Build 3 Houses.',               bonus: 50 },
   trader:         { label: 'The Trader',          description: 'Complete 15 trades.',           bonus: 60 },
   castle_builder: { label: 'Castle Builder',      description: 'Build 1 Castle.',               bonus: 80 },
-  philanthropist: { label: 'The Philanthropist',  description: 'Give more resources than you receive total.', bonus: 55 },
-  guildmaster:    { label: 'The Guildmaster',     description: 'Complete a Guild Hall build.',  bonus: 70 },
+  philanthropist: { label: 'The Philanthropist',  description: 'Give away more total resources than you receive (counted at game end).', bonus: 55 },
+  guildmaster:    { label: 'The Guildmaster',     description: 'Build a Guild Hall.',           bonus: 70 },
 }
 
 export const WORLD_EVENTS: WorldEvent[] = [
   {
     type: 'famine',
     title: '🌵 Famine',
-    description: 'Food is scarce. Food trades are worth double points this round.',
-    effect: { resource: 'food', trade_multiplier: 2 },
+    description: 'Crops spoil across the land. Everyone loses half their food this round.',
+    effect: { resource: 'food', multiplier: 0.5 },
   },
   {
     type: 'gold_rush',

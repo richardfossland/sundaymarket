@@ -23,6 +23,7 @@ export default function PlayPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [tab,     setTab]     = useState<Tab>('resources')
   const [pendingTrades, setPendingTrades] = useState<Trade[]>([])
+  const [notice,  setNotice]  = useState<string | null>(null)
 
   // Load player + session
   useEffect(() => {
@@ -58,15 +59,43 @@ export default function PlayPage() {
       .subscribe()
 
     const tradeSub = supabase
-      .channel(`trades-${player.id}`)
+      .channel(`trades-in-${player.id}`)
       .on('postgres_changes', {
         event: 'INSERT', schema: 'market', table: 'trades',
         filter: `receiver_id=eq.${player.id}`
       }, payload => {
         const trade = payload.new as Trade
         if (trade.status === 'pending') {
-          setPendingTrades(prev => [trade, ...prev])
+          setPendingTrades(prev => prev.some(t => t.id === trade.id) ? prev : [trade, ...prev])
           setTab('trade') // Auto-switch to trade tab
+        }
+      })
+      .subscribe()
+
+    // Outgoing offers: tell the sender when their offer is accepted/declined,
+    // and drop it from the receiver's pending list if it was resolved elsewhere.
+    const outgoingSub = supabase
+      .channel(`trades-out-${player.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'market', table: 'trades',
+        filter: `initiator_id=eq.${player.id}`
+      }, payload => {
+        const trade = payload.new as Trade
+        if (trade.status === 'accepted') setNotice('✅ Your offer was accepted!')
+        else if (trade.status === 'rejected') setNotice('Your offer was declined.')
+      })
+      .subscribe()
+
+    // Keep the pending list honest if an offer we received expires/resolves.
+    const resolvedSub = supabase
+      .channel(`trades-resolved-${player.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'market', table: 'trades',
+        filter: `receiver_id=eq.${player.id}`
+      }, payload => {
+        const trade = payload.new as Trade
+        if (trade.status !== 'pending') {
+          setPendingTrades(prev => prev.filter(t => t.id !== trade.id))
         }
       })
       .subscribe()
@@ -75,9 +104,18 @@ export default function PlayPage() {
       supabase.removeChannel(playerSub)
       supabase.removeChannel(sessionSub)
       supabase.removeChannel(tradeSub)
+      supabase.removeChannel(outgoingSub)
+      supabase.removeChannel(resolvedSub)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [player?.id, sessionId])
+
+  // Auto-dismiss the transient notice.
+  useEffect(() => {
+    if (!notice) return
+    const id = setTimeout(() => setNotice(null), 3500)
+    return () => clearTimeout(id)
+  }, [notice])
 
   // Load pending trades on mount
   useEffect(() => {
@@ -106,6 +144,13 @@ export default function PlayPage() {
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto">
+      {/* Transient toast (e.g. your offer was accepted) */}
+      {notice && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-[#243D57] border border-[#F0BB47]/40 text-[#F0EEE9] text-sm px-4 py-2 rounded-xl shadow-lg animate-fade-in">
+          {notice}
+        </div>
+      )}
+
       {/* Phase bar at top */}
       <PhaseBar session={session} />
 
