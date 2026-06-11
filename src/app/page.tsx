@@ -1,65 +1,139 @@
-import Image from "next/image";
+'use client'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { generateSessionCode, pickRandomRole, pickRandomMission } from '@/lib/game-helpers'
 
-export default function Home() {
+export default function HomePage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [code, setCode] = useState('')
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [mode, setMode] = useState<'join' | 'host'>('join')
+
+  async function joinGame() {
+    setError('')
+    if (!code.trim() || !name.trim()) { setError('Enter both a session code and your name.'); return }
+    setLoading(true)
+
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('*')
+      .eq('code', code.toUpperCase().trim())
+      .single()
+
+    if (!session) { setError('Session not found. Check the code.'); setLoading(false); return }
+    if (session.phase !== 'lobby') { setError('This game has already started.'); setLoading(false); return }
+
+    const { data: existingPlayers } = await supabase
+      .from('players')
+      .select('role')
+      .eq('session_id', session.id)
+
+    const existingRoles = (existingPlayers || []).map(p => p.role)
+    const role     = pickRandomRole(existingRoles)
+    const mission  = pickRandomMission()
+
+    const { data: player, error: insertError } = await supabase
+      .from('players')
+      .insert({ session_id: session.id, name: name.trim(), role, resources: { wood:0,stone:0,food:0,gold:0 }, mission })
+      .select()
+      .single()
+
+    if (insertError || !player) { setError('Could not join. Try again.'); setLoading(false); return }
+
+    localStorage.setItem('sundaymarket_player_id', player.id)
+    localStorage.setItem('sundaymarket_session_id', session.id)
+    router.push(`/game/${session.id}/role-reveal`)
+  }
+
+  async function createSession() {
+    setError('')
+    setLoading(true)
+    const hostId = crypto.randomUUID()
+    const code   = generateSessionCode()
+
+    const { data: session, error: err } = await supabase
+      .from('sessions')
+      .insert({ code, host_id: hostId, phase: 'lobby', round: 0, max_rounds: 6 })
+      .select()
+      .single()
+
+    if (err || !session) { setError('Could not create session.'); setLoading(false); return }
+
+    localStorage.setItem('sundaymarket_host_id', hostId)
+    router.push(`/host/${session.id}`)
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+      {/* Logo / Title */}
+      <div className="mb-10 text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-[#F0BB47]">SundayMarket</h1>
+        <p className="mt-2 text-[#8A9BB0] text-sm">A trading game. No player wins alone.</p>
+      </div>
+
+      {/* Mode toggle */}
+      <div className="flex gap-2 mb-8 bg-[#1A2D42] p-1 rounded-xl">
+        <button
+          onClick={() => setMode('join')}
+          className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+            mode === 'join' ? 'bg-[#F0BB47] text-[#0D1B2A]' : 'text-[#8A9BB0]'
+          }`}
+        >
+          Join game
+        </button>
+        <button
+          onClick={() => setMode('host')}
+          className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+            mode === 'host' ? 'bg-[#F0BB47] text-[#0D1B2A]' : 'text-[#8A9BB0]'
+          }`}
+        >
+          Host a game
+        </button>
+      </div>
+
+      <div className="w-full max-w-sm space-y-4">
+        {mode === 'join' ? (
+          <>
+            <input
+              type="text"
+              placeholder="Session code (e.g. OAK-42)"
+              value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())}
+              className="w-full bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-3 text-[#F0EEE9] placeholder-[#8A9BB0] focus:outline-none focus:border-[#F0BB47] uppercase tracking-widest text-center text-xl"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <input
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-3 text-[#F0EEE9] placeholder-[#8A9BB0] focus:outline-none focus:border-[#F0BB47]"
+            />
+            <button
+              onClick={joinGame}
+              disabled={loading}
+              className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-50"
+            >
+              {loading ? 'Joining…' : 'Join game →'}
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={createSession}
+            disabled={loading}
+            className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-50"
           >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+            {loading ? 'Creating…' : 'Create new session →'}
+          </button>
+        )}
+
+        {error && (
+          <p className="text-[#E07B39] text-sm text-center">{error}</p>
+        )}
+      </div>
+    </main>
+  )
 }
