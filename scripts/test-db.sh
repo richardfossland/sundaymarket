@@ -16,6 +16,8 @@ run() { docker cp "$1" "$NAME:/tmp/$(basename "$1")" >/dev/null; docker exec "$N
 echo "→ prelude (Supabase role/publication shims)"; run supabase/tests/_prelude.sql
 echo "→ migration (1st apply)"; run supabase/migrations/0001_market_schema.sql
 echo "→ migration (2nd apply — idempotency)"; run supabase/migrations/0001_market_schema.sql
+echo "→ migration 0002 (1st apply)"; run supabase/migrations/0002_director_narration.sql
+echo "→ migration 0002 (2nd apply — idempotency)"; run supabase/migrations/0002_director_narration.sql
 echo "→ game-logic assertions"
 docker cp supabase/tests/game_logic_test.sql "$NAME:/tmp/game_logic_test.sql" >/dev/null
 OUT=$(docker exec "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q -f /tmp/game_logic_test.sql 2>&1)

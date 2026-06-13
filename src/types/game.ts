@@ -64,5 +64,6 @@ export interface Session {
   trade_seconds: number
   phase_started_at: string | null
   world_event: WorldEvent | null
+  narration: string | null
   created_at: string
 }
