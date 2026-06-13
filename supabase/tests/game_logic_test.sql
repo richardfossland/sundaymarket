@@ -156,5 +156,54 @@ begin
   perform pg_temp.assert_eq((select phase='ended' from sessions where id=sid)::int, 1, 'E: finalize sets phase ended');
 end $$;
 
+-- ============ Scenario F: live market price index ============
+do $$
+declare
+  sid uuid; lj uuid; gm uuid; tid uuid; r jsonb;
+  wood_p numeric; gold_p numeric; food_p numeric;
+  prev_food numeric; new_food numeric;
+begin
+  insert into sessions(code,host_id,phase) values ('TEST-F','h','trading') returning id into sid;
+  -- Wood-rich lumberjack, gold-rich (but scarce overall) goldminer. No food at all.
+  insert into players(session_id,name,role,mission,resources)
+    values (sid,'Wood','lumberjack','trader','{"wood":40,"stone":4,"food":0,"gold":0}') returning id into lj;
+  insert into players(session_id,name,role,mission,resources)
+    values (sid,'Gold','goldminer','trader','{"wood":0,"stone":4,"food":0,"gold":2}') returning id into gm;
+
+  -- A scarcity-only recompute (no trade): seeds a prices row per resource.
+  perform recompute_prices(sid, null);
+  perform pg_temp.assert_eq((select count(*)::int from prices where session_id=sid), 4, 'F: one price row per resource');
+
+  -- Gold is far rarer than wood across players -> gold price > wood price.
+  select price into wood_p from prices where session_id=sid and resource='wood';
+  select price into gold_p from prices where session_id=sid and resource='gold';
+  perform pg_temp.assert_true(gold_p > wood_p, 'F: scarce gold priced above abundant wood');
+
+  -- Food has zero supply -> scarcity drives its price above its base (1.0).
+  select price into food_p from prices where session_id=sid and resource='food';
+  perform pg_temp.assert_true(food_p > base_price('food'), 'F: zero-supply food priced above its base');
+
+  -- An accepted trade triggers recompute and snapshots prev_price for arrows.
+  select price into prev_food from prices where session_id=sid and resource='wood';
+  insert into trades(session_id,initiator_id,receiver_id,offer,request)
+    values (sid,lj,gm,'{"wood":4,"stone":0,"food":0,"gold":0}','{"wood":0,"stone":0,"food":0,"gold":1}')
+    returning id into tid;
+  r := accept_trade(tid, gm);
+  perform pg_temp.assert_true((r->>'success')::bool, 'F: price-tracked trade accepted');
+
+  -- accept_trade should have bumped trades_seen and recorded a prev_price.
+  perform pg_temp.assert_true(
+    (select trades_seen from prices where session_id=sid and resource='wood') >= 1,
+    'F: accept_trade increments trades_seen');
+  perform pg_temp.assert_eq(
+    (select (prev_price = prev_food)::int from prices where session_id=sid and resource='wood'),
+    1, 'F: prev_price snapshots the value before the trade');
+
+  -- Prices stay inside the display-friendly band [0.1, 9.999].
+  perform pg_temp.assert_true(
+    (select bool_and(price >= 0.1 and price <= 9.999) from prices where session_id=sid),
+    'F: all prices within display band');
+end $$;
+
 \echo ''
 \echo '================= ALL GAME-LOGIC TESTS PASSED ================='
