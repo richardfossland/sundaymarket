@@ -54,6 +54,20 @@ export interface WorldEvent {
   effect: Record<string, unknown>
 }
 
+export type ResourceKey = keyof Resources
+
+// One row per (session, resource) in market.prices — the live market price
+// index. Written only by the SECURITY DEFINER market.recompute_prices on each
+// accepted trade; clients read it over realtime.
+export interface Price {
+  session_id: string
+  resource: ResourceKey
+  price: number
+  prev_price: number
+  trades_seen: number
+  updated_at: string
+}
+
 export interface Session {
   id: string
   code: string
