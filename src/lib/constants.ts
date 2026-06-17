@@ -130,3 +130,23 @@ export const RESOURCE_EMOJIS: Record<keyof Resources, string> = {
 }
 
 export const EMPTY_RESOURCES: Resources = { wood: 0, stone: 0, food: 0, gold: 0 }
+
+// Canonical resource order for the live market price ticker / hint.
+export const RESOURCE_ORDER: (keyof Resources)[] = ['wood', 'stone', 'food', 'gold']
+
+export const RESOURCE_LABELS: Record<keyof Resources, string> = {
+  wood:  'Wood',
+  stone: 'Stone',
+  food:  'Food',
+  gold:  'Gold',
+}
+
+// Until a resource has its first price row, fall back to the schema default
+// (Wood/Stone/Food anchored at 1.0, Gold at 2.0) so the ticker has something
+// sensible to show before the first trade.
+export const DEFAULT_PRICES: Record<keyof Resources, number> = {
+  wood:  1.0,
+  stone: 1.0,
+  food:  1.0,
+  gold:  2.0,
+}

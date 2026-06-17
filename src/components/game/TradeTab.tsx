@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { RESOURCE_EMOJIS, EMPTY_RESOURCES } from '@/lib/constants'
 import { formatResources } from '@/lib/game-helpers'
 import { QRCodeSVG } from 'qrcode.react'
+import PriceHint from './PriceHint'
 
 // html5-qrcode is a browser-only (CommonJS) package — load it client-side only.
 const QRScanner = dynamic(() => import('./QRScanner'), { ssr: false })
@@ -117,6 +118,9 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
 
   return (
     <div className="px-4 py-6 animate-fade-in">
+      {/* Live market price hint — what each resource is worth right now */}
+      <PriceHint sessionId={session.id} />
+
       {feedback && (
         <div className="bg-[#1A2D42] border border-[#F0BB47]/30 rounded-xl p-3 mb-4 text-sm text-[#F0EEE9] text-center">
           {feedback}
