@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Session, Player } from '@/types/game'
+import { Session, Player, WorldEvent } from '@/types/game'
 import { WORLD_EVENTS } from '@/lib/constants'
 
 export default function HostPanel() {
@@ -15,6 +15,18 @@ export default function HostPanel() {
   const [players,  setPlayers]  = useState<Player[]>([])
   const [loading,  setLoading]  = useState(false)
   const [isHost,   setIsHost]   = useState(false)
+
+  // AI "town crier" director suggestion for the NEXT round (pending host action).
+  // null = none asked for yet. Always carries a VALIDATED event from the server.
+  interface DirectorResult {
+    narration: string
+    event: WorldEvent
+    suggestionApplied: boolean
+    reasoning: string
+    aiAvailable: boolean
+  }
+  const [director, setDirector] = useState<DirectorResult | null>(null)
+  const [askingAi, setAskingAi] = useState(false)
 
   // How long the brief "production" animation runs before trading auto-opens.
   const PRODUCTION_MS = 3000
@@ -66,26 +78,69 @@ export default function HostPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, session?.phase, session?.phase_started_at])
 
-  // Start a production round: pick the world event, run production server-side,
-  // then flip to 'production'. Trading opens via the self-healing effect above.
-  async function beginProduction(round: number) {
-    const event = WORLD_EVENTS[Math.floor(Math.random() * WORLD_EVENTS.length)]
+  // Start a production round. By default rolls a random world event (unchanged
+  // behavior). If the host one-tapped the AI town crier's suggestion, that
+  // server-VALIDATED event + narration is passed in instead.
+  async function beginProduction(round: number, override?: { event: WorldEvent; narration: string }) {
+    const event = override?.event ?? WORLD_EVENTS[Math.floor(Math.random() * WORLD_EVENTS.length)]
     await supabase.from('sessions').update({
       phase: 'production',
       round,
       world_event: event,
+      narration: override?.narration ?? null,
       phase_started_at: new Date().toISOString(),
     }).eq('id', sessionId)
     await supabase.rpc('run_production', { p_session_id: sessionId })
+    setDirector(null) // consumed
+  }
+
+  // Consult the AI town crier for the NEXT round. The server reads the round
+  // state, asks Claude (if a key is configured), VALIDATES the suggestion
+  // against the world-event enum, and returns a guaranteed-valid event +
+  // narration. Keyless / failure => aiAvailable:false, falls back silently.
+  async function askDirector() {
+    if (!session || !isHost) return
+    setAskingAi(true)
+    try {
+      const sorted = [...players].sort((a, b) => b.score - a.score)
+      const scores = players.map(p => p.score)
+      const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+      const res = await fetch('/api/director', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          round: session.round + 1,
+          maxRounds: session.max_rounds,
+          phase: session.phase,
+          playerCount: players.length,
+          topScore: sorted[0]?.score ?? 0,
+          bottomScore: sorted[sorted.length - 1]?.score ?? 0,
+          averageScore: avg,
+          totalTrades: players.reduce((s, p) => s + p.trade_count, 0),
+        }),
+      })
+      if (res.ok) setDirector(await res.json() as DirectorResult)
+    } catch {
+      // Network failure on the client — leave director null; host just uses
+      // the normal random-event path. Never blocks the game.
+    } finally {
+      setAskingAi(false)
+    }
   }
 
   async function advancePhase() {
     if (!session || !isHost) return
     setLoading(true)
 
+    // If the host asked the town crier and applied the suggestion, hand the
+    // VALIDATED event + narration to beginProduction; otherwise it rolls random.
+    const override = director?.suggestionApplied
+      ? { event: director.event, narration: director.narration }
+      : undefined
+
     if (session.phase === 'lobby') {
       if (players.length < 1) { setLoading(false); return }
-      await beginProduction(1)
+      await beginProduction(1, override)
     } else if (session.phase === 'production') {
       // Manual override: open trading immediately.
       await supabase.from('sessions')
@@ -100,7 +155,7 @@ export default function HostPanel() {
         // finalize_game resolves end-game missions AND flips phase to 'ended'.
         await supabase.rpc('finalize_game', { p_session_id: sessionId })
       } else {
-        await beginProduction(session.round + 1)
+        await beginProduction(session.round + 1, override)
       }
     }
 
@@ -155,8 +210,55 @@ export default function HostPanel() {
             <p className="text-xs text-[#8A9BB0] mb-1">Active world event</p>
             <p className="text-[#F0BB47] font-semibold">{session.world_event.title}</p>
             <p className="text-[#8A9BB0] text-xs mt-0.5">{session.world_event.description}</p>
+            {session.narration && (
+              <p className="text-[#F0EEE9] text-sm mt-2 italic">📣 {session.narration}</p>
+            )}
           </div>
         )}
+
+        {/* AI town crier — available before the NEXT round starts (lobby, or a
+            non-final building phase). The host can ask, then one-tap apply. */}
+        {isHost &&
+          (session.phase === 'lobby' ||
+            (session.phase === 'building' && session.round < session.max_rounds)) && (
+            <div className="bg-[#0D1B2A] rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-[#8A9BB0]">📣 Byutroperen (AI)</p>
+                <button
+                  onClick={askDirector}
+                  disabled={askingAi}
+                  className="text-xs bg-[#1A2D42] border border-[#243D57] rounded-lg px-3 py-1 text-[#F0EEE9] disabled:opacity-40"
+                >
+                  {askingAi ? 'Spør…' : 'Spør byutroperen'}
+                </button>
+              </div>
+
+              {director && !director.aiAvailable && (
+                <p className="text-[#8A9BB0] text-xs">AI ikke tilgjengelig — neste runde bruker tilfeldig hendelse.</p>
+              )}
+
+              {director && director.aiAvailable && director.suggestionApplied && (
+                <div className="space-y-1">
+                  {director.narration && (
+                    <p className="text-[#F0EEE9] text-sm italic">{director.narration}</p>
+                  )}
+                  <p className="text-[#F0BB47] text-sm font-semibold">
+                    Foreslår: {director.event.title}
+                  </p>
+                  <p className="text-[#8A9BB0] text-xs">{director.reasoning}</p>
+                  <p className="text-[#8A9BB0] text-xs">
+                    Trykk «{phaseButtonLabel[session.phase]}» for å bruke forslaget.
+                  </p>
+                </div>
+              )}
+
+              {director && director.aiAvailable && !director.suggestionApplied && (
+                <p className="text-[#8A9BB0] text-xs">
+                  AI ga ikke et gyldig forslag — neste runde bruker tilfeldig hendelse.
+                </p>
+              )}
+            </div>
+          )}
 
         <button
           onClick={advancePhase}

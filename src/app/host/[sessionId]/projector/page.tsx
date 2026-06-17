@@ -79,6 +79,14 @@ export default function ProjectorView() {
           </div>
         )}
 
+        {/* AI town crier narration — only shown when present (hidden keyless). */}
+        {session.narration && (
+          <div className="bg-[#1A2D42] rounded-2xl p-6">
+            <p className="text-[#8A9BB0] text-sm uppercase tracking-widest mb-2">📣 Byutroperen</p>
+            <p className="text-[#F0EEE9] text-xl italic leading-relaxed">{session.narration}</p>
+          </div>
+        )}
+
         <div className="bg-[#1A2D42] rounded-2xl p-6 space-y-3">
           <div>
             <p className="text-[#8A9BB0] text-sm">Total trades this session</p>

@@ -16,6 +16,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run test
 
   db:
     # scripts/test-db.sh spins up postgres:16 in Docker and applies the real

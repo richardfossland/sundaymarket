@@ -16,6 +16,8 @@ run() { docker cp "$1" "$NAME:/tmp/$(basename "$1")" >/dev/null; docker exec "$N
 echo "→ prelude (Supabase role/publication shims)"; run supabase/tests/_prelude.sql
 
 # Apply every migration in lexical order, twice, to prove idempotency.
+# Globbing covers 0001_market_schema, 0002_market_prices, and
+# 0003_director_narration without hard-coding each file.
 echo "→ migrations (1st apply)"
 for m in supabase/migrations/*.sql; do echo "   $m"; run "$m"; done
 echo "→ migrations (2nd apply — idempotency)"
