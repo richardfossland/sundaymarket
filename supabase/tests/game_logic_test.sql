@@ -205,5 +205,56 @@ begin
     'F: all prices within display band');
 end $$;
 
+-- ============ Scenario G: OPTIONAL host ownership + owner-gated delete ============
+-- Mirrors the API route's 401/403/200 contract at the SQL boundary:
+--   * a NULL caller can never delete (the route maps not-signed-in -> 401),
+--   * a DIFFERENT owner cannot delete (403-equivalent: row stays),
+--   * an anonymous økt (host_user_id NULL) is not owner-deletable (route 404),
+--   * the TRUE owner deletes (200) and FK cascade removes children,
+--   * the "my games" listing is scoped strictly by host_user_id.
+do $$
+declare
+  owner_a uuid := gen_random_uuid();
+  owner_b uuid := gen_random_uuid();
+  s_anon uuid; s_a uuid; s_b uuid;
+  pl uuid;
+  ok boolean;
+begin
+  -- Anonymous økt (no owner) + one owned by A + one owned by B.
+  insert into sessions(code,host_id,phase)              values ('TEST-G0','h0','lobby') returning id into s_anon;
+  insert into sessions(code,host_id,phase,host_user_id) values ('TEST-G1','h1','lobby',owner_a) returning id into s_a;
+  insert into sessions(code,host_id,phase,host_user_id) values ('TEST-G2','h2','lobby',owner_b) returning id into s_b;
+  insert into players(session_id,name,role,mission) values (s_a,'P','farmer','trader') returning id into pl;
+
+  -- "My games" listing is owner-scoped.
+  perform pg_temp.assert_eq((select count(*)::int from sessions where host_user_id = owner_a), 1, 'G: owner A lists exactly their 1 game');
+  perform pg_temp.assert_eq((select count(*)::int from sessions where host_user_id = owner_b), 1, 'G: owner B lists exactly their 1 game');
+
+  -- 401-analog: a NULL caller can never delete via this path.
+  ok := delete_session(s_a, null);
+  perform pg_temp.assert_true(ok is not true, 'G: null caller cannot delete');
+  perform pg_temp.assert_eq((select count(*)::int from sessions where id = s_a), 1, 'G: row survives null caller');
+
+  -- 403-analog: wrong owner cannot delete someone else''s game.
+  ok := delete_session(s_a, owner_b);
+  perform pg_temp.assert_true(ok is not true, 'G: non-owner delete denied');
+  perform pg_temp.assert_eq((select count(*)::int from sessions where id = s_a), 1, 'G: row survives non-owner');
+
+  -- 404-analog: anonymous (owner NULL) session is not deletable by any owner.
+  ok := delete_session(s_anon, owner_a);
+  perform pg_temp.assert_true(ok is not true, 'G: anonymous session not owner-deletable');
+  perform pg_temp.assert_eq((select count(*)::int from sessions where id = s_anon), 1, 'G: anonymous session survives');
+
+  -- 200: the true owner deletes; FK cascade removes the player too.
+  ok := delete_session(s_a, owner_a);
+  perform pg_temp.assert_true(ok, 'G: owner delete succeeds');
+  perform pg_temp.assert_eq((select count(*)::int from sessions where id = s_a), 0, 'G: owned session removed');
+  perform pg_temp.assert_eq((select count(*)::int from players where id = pl), 0, 'G: child player cascade-removed');
+
+  -- B''s game and the anonymous game are untouched by A''s delete.
+  perform pg_temp.assert_eq((select count(*)::int from sessions where id = s_b), 1, 'G: other owner game untouched');
+  perform pg_temp.assert_eq((select count(*)::int from sessions where id = s_anon), 1, 'G: anonymous game untouched');
+end $$;
+
 \echo ''
 \echo '================= ALL GAME-LOGIC TESTS PASSED ================='

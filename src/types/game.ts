@@ -72,6 +72,9 @@ export interface Session {
   id: string
   code: string
   host_id: string
+  /** OPTIONAL Sunday Account owner (auth.users id on the issuer project). NULL
+   * for anonymously-created games. Only used by the host "my games" dashboard. */
+  host_user_id: string | null
   phase: Phase
   round: number
   max_rounds: number

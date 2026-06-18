@@ -13,11 +13,21 @@
     "enabled": true
   }
   // Runtime env (NEXT_PUBLIC_* are build-time inlined):
-  //   SUPABASE_SERVICE_ROLE_KEY is a runtime Worker secret (only needed if
-  //   server routes are added later — the game currently uses the anon key):
+  //   SUPABASE_SERVICE_ROLE_KEY — DATA-project service role. Now REQUIRED for the
+  //   OPTIONAL host dashboard's owner-gated delete (market.delete_session). The
+  //   anonymous game still uses the anon key:
   //     npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
   //   ANTHROPIC_API_KEY is an OPTIONAL Worker secret powering the AI "town
   //   crier" narrator at app/api/director. Without it the game falls back to
   //   random world events and hides narration:
   //     npx wrangler secret put ANTHROPIC_API_KEY
+  //
+  //   OPTIONAL Sunday Account host login (vert-only "my games" dashboard). All
+  //   anonymous play works without ANY of these; the host login is simply off
+  //   until they are set:
+  //     NEXT_PUBLIC_SUNDAY_AUTH_URL        build-time, issuer project URL
+  //     NEXT_PUBLIC_SUNDAY_AUTH_ANON_KEY   build-time, issuer anon key
+  //     NEXT_PUBLIC_COOKIE_DOMAIN          build-time, ".sundaysuite.app" (cross-app SSO)
+  //     MARKET_ADMIN_EMAILS                Worker secret, comma-separated host allowlist
+  //       npx wrangler secret put MARKET_ADMIN_EMAILS
 }
