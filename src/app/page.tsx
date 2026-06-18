@@ -55,13 +55,26 @@ export default function HomePage() {
     setLoading(true)
     const hostId = crypto.randomUUID()
 
+    // OPTIONAL Sunday Account owner-stamp. Best-effort ONLY: if a host is signed
+    // in (and allowlisted) we tag the økt with their user id so it shows in their
+    // "my games" dashboard. Anonymous hosting MUST keep working, so any failure
+    // here just leaves host_user_id = NULL — never blocks create.
+    let hostUserId: string | null = null
+    try {
+      const res = await fetch('/host/api/whoami')
+      if (res.ok) hostUserId = (await res.json()).userId ?? null
+    } catch {
+      // not signed in / offline / route unavailable — anonymous create proceeds
+    }
+    const ownerCols = hostUserId ? { host_user_id: hostUserId } : {}
+
     // The code space is small (8 words × 90 numbers), so collisions happen.
     // Retry with a fresh code on the unique-constraint violation (Postgres 23505).
     let session = null
     for (let attempt = 0; attempt < 8 && !session; attempt++) {
       const { data, error: err } = await supabase
         .from('sessions')
-        .insert({ code: generateSessionCode(), host_id: hostId, phase: 'lobby', round: 0, max_rounds: 6 })
+        .insert({ code: generateSessionCode(), host_id: hostId, phase: 'lobby', round: 0, max_rounds: 6, ...ownerCols })
         .select()
         .single()
 
@@ -143,6 +156,15 @@ export default function HomePage() {
 
         {error && <InlineError onDismiss={() => setError('')}>{error}</InlineError>}
       </div>
+
+      {/* Discreet host sign-in: OPTIONAL "my games" dashboard via Sunday Account.
+          Anonymous hosting above needs none of this. */}
+      <a
+        href="/host"
+        className="mt-10 text-xs text-[#8A9BB0]/70 hover:text-[#8A9BB0] transition-colors"
+      >
+        Host sign-in
+      </a>
     </main>
   )
 }
