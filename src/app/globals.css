@@ -1,23 +1,45 @@
 @import "tailwindcss";
 
-:root {
-  --color-navy:    #0D1B2A;
-  --color-surface: #1A2D42;
-  --color-border:  #243D57;
-  --color-gold:    #F0BB47;
-  --color-amber:   #E07B39;
-  --color-text:    #F0EEE9;
-  --color-muted:   #8A9BB0;
-  --color-wood:    #7C5C3A;
-  --color-stone:   #8A9BB0;
-  --color-food:    #4A8C5C;
+/* SundayMarket — design foundation.
+   A real-time trading game within the Sunday Suite brand. Keeps its own navy
+   ground (#0D1B2A) and amber/resource accents, harmonized toward the suite gold
+   (#EBB84B), ink (#14171E) and paper (#FAF7F0), with Playfair Display + Hanken
+   Grotesk injected by next/font in layout.tsx. */
+
+/* Wire the brand tokens into Tailwind's theme so the suite fonts drive the
+   `font-sans` / `font-display` utilities, and the brand palette is available as
+   `bg-navy`, `text-gold`, `border-border`, `text-muted`, etc. instead of
+   repeated inline hex literals. Colour values are duplicated literally here
+   (rather than `var()`-referenced) so the theme keys resolve cleanly. */
+@theme inline {
+  --font-sans:    var(--font-body), "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: var(--font-display), "Playfair Display", Georgia, serif;
 }
 
-@theme inline {
-  --font-sans: var(--font-inter), system-ui, sans-serif;
+@theme {
+  --color-navy:        #0D1B2A;
+  --color-surface:     #1A2D42;
+  --color-border:      #243D57;
+  --color-gold:        #EBB84B;
+  --color-gold-light:  #F2D58A;
+  --color-gold-deep:   #D4A23A;
+  --color-amber:       #E07B39;
+  --color-ink:         #14171E;
+  --color-paper:       #FAF7F0;
+  --color-text:        #F0EEE9;
+  --color-muted:       #8A9BB0;
+  --color-wood:        #7C5C3A;
+  --color-stone:       #8A9BB0;
+  --color-food:        #4A8C5C;
 }
 
 * { box-sizing: border-box; }
+
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+
+h1, h2, h3 { font-family: var(--font-display); }
+
+::selection { background: var(--color-gold); color: var(--color-ink); }
 
 @keyframes pulse-gold {
   0%, 100% { opacity: 1; }
@@ -32,3 +54,40 @@
 }
 
 .animate-fade-in { animation: fade-in 0.3s ease-out; }
+
+/* Keyboard focus rings — only on keyboard nav, never on mouse click.
+   Matches the suite's gold ring (copied from the SundayChess reference). */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-gold) 50%, transparent);
+  border-radius: 10px;
+}
+
+/* Comfortable touch targets (WCAG 2.5.5) for interactive controls. */
+button,
+[role="button"],
+a[href],
+input,
+select,
+textarea {
+  min-height: 44px;
+}
+
+/* ≥16px on form fields stops iOS Safari from auto-zooming on focus. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Respect users who ask for less motion — disable the animation layer. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

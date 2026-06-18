@@ -45,10 +45,10 @@ export function getBuildingDef(type: BuildingType) {
 
 export function formatResources(r: Resources): string {
   const parts: string[] = []
-  if (r.wood  > 0) parts.push(`${r.wood} Wood`)
-  if (r.stone > 0) parts.push(`${r.stone} Stone`)
-  if (r.food  > 0) parts.push(`${r.food} Food`)
-  if (r.gold  > 0) parts.push(`${r.gold} Gold`)
+  if (r.wood  > 0) parts.push(`${r.wood} tre`)
+  if (r.stone > 0) parts.push(`${r.stone} stein`)
+  if (r.food  > 0) parts.push(`${r.food} mat`)
+  if (r.gold  > 0) parts.push(`${r.gold} gull`)
   return parts.join(', ')
 }
 

@@ -81,8 +81,8 @@ export default function PlayPage() {
         filter: `initiator_id=eq.${player.id}`
       }, payload => {
         const trade = payload.new as Trade
-        if (trade.status === 'accepted') setNotice('✅ Your offer was accepted!')
-        else if (trade.status === 'rejected') setNotice('Your offer was declined.')
+        if (trade.status === 'accepted') setNotice('✅ Tilbudet ditt ble godtatt!')
+        else if (trade.status === 'rejected') setNotice('Tilbudet ditt ble avslått.')
       })
       .subscribe()
 
@@ -134,7 +134,7 @@ export default function PlayPage() {
 
   if (!player || !session) return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-[#8A9BB0]">Loading…</div>
+      <div className="text-[#8A9BB0]">Laster…</div>
     </div>
   )
 
@@ -146,7 +146,7 @@ export default function PlayPage() {
     <div className="min-h-screen flex flex-col max-w-lg mx-auto">
       {/* Transient toast (e.g. your offer was accepted) */}
       {notice && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-[#243D57] border border-[#F0BB47]/40 text-[#F0EEE9] text-sm px-4 py-2 rounded-xl shadow-lg animate-fade-in">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-[#243D57] border border-[#EBB84B]/40 text-[#F0EEE9] text-sm px-4 py-2 rounded-xl shadow-lg animate-fade-in">
           {notice}
         </div>
       )}
@@ -172,16 +172,16 @@ export default function PlayPage() {
       {/* Bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-[#1A2D42] border-t border-[#243D57] grid grid-cols-4">
         {([
-          { id: 'resources', label: 'Resources', icon: '🎒', badge: 0 },
-          { id: 'trade',     label: 'Trade',     icon: '🤝', badge: pendingTrades.length },
-          { id: 'build',     label: 'Build',     icon: '🏗️', badge: 0 },
-          { id: 'mission',   label: 'Mission',   icon: '🎯', badge: 0 },
+          { id: 'resources', label: 'Ressurser', icon: '🎒', badge: 0 },
+          { id: 'trade',     label: 'Handel',    icon: '🤝', badge: pendingTrades.length },
+          { id: 'build',     label: 'Bygg',      icon: '🏗️', badge: 0 },
+          { id: 'mission',   label: 'Oppdrag',   icon: '🎯', badge: 0 },
         ] as const).map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`relative flex flex-col items-center py-3 text-xs transition-colors ${
-              tab === t.id ? 'text-[#F0BB47]' : 'text-[#8A9BB0]'
+              tab === t.id ? 'text-[#EBB84B]' : 'text-[#8A9BB0]'
             }`}
           >
             <span className="text-xl">{t.icon}</span>

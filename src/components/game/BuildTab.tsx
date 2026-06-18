@@ -4,10 +4,12 @@ import { Player, Session } from '@/types/game'
 import { createClient } from '@/lib/supabase/client'
 import { BUILDINGS, RESOURCE_EMOJIS } from '@/lib/constants'
 import { canAfford } from '@/lib/game-helpers'
+import InlineError from '@/components/InlineError'
 
 export default function BuildTab({ player, session }: { player: Player; session: Session }) {
   const supabase = createClient()
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [feedbackError, setFeedbackError] = useState(false)
   const [building, setBuilding] = useState<string | null>(null)
   const isBuilding = session.phase === 'building'
 
@@ -20,9 +22,11 @@ export default function BuildTab({ player, session }: { player: Player; session:
     })
     setBuilding(null)
     if (data?.success) {
-      setFeedback(`✅ Built! +${data.points} points`)
+      setFeedbackError(false)
+      setFeedback(`✅ Bygd! +${data.points} poeng`)
     } else {
-      setFeedback(`❌ ${data?.error ?? 'Build failed'}`)
+      setFeedbackError(true)
+      setFeedback(data?.error ?? 'Byggingen mislyktes')
     }
   }
 
@@ -30,15 +34,19 @@ export default function BuildTab({ player, session }: { player: Player; session:
     <div className="px-4 py-6 space-y-4 animate-fade-in">
       {!isBuilding && (
         <div className="bg-[#1A2D42] rounded-xl p-4 text-center">
-          <p className="text-[#8A9BB0] text-sm">Building opens after the trading phase.</p>
+          <p className="text-[#8A9BB0] text-sm">Bygging åpner etter handelsfasen.</p>
         </div>
       )}
 
       {feedback && (
-        <div className="bg-[#1A2D42] rounded-xl p-3 text-sm text-center text-[#F0EEE9]">
-          {feedback}
-          <button onClick={() => setFeedback(null)} className="ml-2 text-[#8A9BB0] text-xs">✕</button>
-        </div>
+        feedbackError ? (
+          <InlineError onDismiss={() => setFeedback(null)}>{feedback}</InlineError>
+        ) : (
+          <div className="bg-[#1A2D42] rounded-xl p-3 text-sm text-center text-[#F0EEE9]">
+            {feedback}
+            <button onClick={() => setFeedback(null)} className="ml-2 text-[#8A9BB0] text-xs">✕</button>
+          </div>
+        )
       )}
 
       {BUILDINGS.map(b => {
@@ -46,15 +54,15 @@ export default function BuildTab({ player, session }: { player: Player; session:
         return (
           <div
             key={b.type}
-            className={`bg-[#1A2D42] rounded-2xl p-4 border ${affordable && isBuilding ? 'border-[#F0BB47]/40' : 'border-[#243D57]'}`}
+            className={`bg-[#1A2D42] rounded-2xl p-4 border ${affordable && isBuilding ? 'border-[#EBB84B]/40' : 'border-[#243D57]'}`}
           >
             <div className="flex items-start justify-between mb-2">
               <div>
                 <h3 className="font-semibold text-[#F0EEE9]">{b.label}</h3>
                 <p className="text-xs text-[#8A9BB0] mt-0.5">{b.description}</p>
               </div>
-              <span className="text-[#F0BB47] font-bold text-lg whitespace-nowrap ml-3">
-                +{b.points} pts
+              <span className="text-[#EBB84B] font-bold text-lg whitespace-nowrap ml-3">
+                +{b.points} p
               </span>
             </div>
 
@@ -73,9 +81,9 @@ export default function BuildTab({ player, session }: { player: Player; session:
             <button
               onClick={() => build(b.type)}
               disabled={!affordable || !isBuilding || building === b.type}
-              className="w-full py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-[#F0BB47] text-[#0D1B2A]"
+              className="w-full py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-[#EBB84B] text-[#0D1B2A]"
             >
-              {building === b.type ? 'Building…' : affordable ? 'Build' : 'Not enough resources'}
+              {building === b.type ? 'Bygger…' : affordable ? 'Bygg' : 'Ikke nok ressurser'}
             </button>
           </div>
         )

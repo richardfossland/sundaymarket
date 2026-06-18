@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Session, Player, WorldEvent } from '@/types/game'
-import { WORLD_EVENTS } from '@/lib/constants'
+import { WORLD_EVENTS, ROLE_LABELS } from '@/lib/constants'
 
 export default function HostPanel() {
   const params    = useParams()
@@ -163,16 +163,24 @@ export default function HostPanel() {
   }
 
   const phaseButtonLabel: Record<string, string> = {
-    lobby:      players.length < 1 ? 'Waiting for players…' : `Start game (${players.length} player${players.length === 1 ? '' : 's'})`,
-    production: 'Open trading now',
-    trading:    'Close trading → Building',
-    building:   session?.round === session?.max_rounds ? 'End game' : 'Next round',
-    ended:      'Game ended',
+    lobby:      players.length < 1 ? 'Venter på spillere…' : `Start spillet (${players.length} spiller${players.length === 1 ? '' : 'e'})`,
+    production: 'Åpne handel nå',
+    trading:    'Steng handel → Bygging',
+    building:   session?.round === session?.max_rounds ? 'Avslutt spillet' : 'Neste runde',
+    ended:      'Spillet er over',
+  }
+
+  const phaseLabel: Record<string, string> = {
+    lobby:      'Venterom',
+    production: 'Produksjon',
+    trading:    'Handel',
+    building:   'Bygging',
+    ended:      'Avsluttet',
   }
 
   if (!session) return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-[#8A9BB0]">Loading…</div>
+      <div className="text-[#8A9BB0]">Laster…</div>
     </div>
   )
 
@@ -181,14 +189,14 @@ export default function HostPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#F0BB47]">SundayMarket</h1>
-          <p className="text-[#8A9BB0] text-sm">Session code: <span className="text-[#F0EEE9] font-bold tracking-widest">{session.code}</span></p>
+          <h1 className="font-display text-3xl font-bold text-[#EBB84B]">SundayMarket</h1>
+          <p className="text-[#8A9BB0] text-sm">Spillkode: <span className="text-[#F0EEE9] font-bold tracking-widest">{session.code}</span></p>
         </div>
         <button
           onClick={() => router.push(`/host/${sessionId}/projector`)}
           className="bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-2 text-sm text-[#F0EEE9]"
         >
-          📺 Projector
+          📺 Storskjerm
         </button>
       </div>
 
@@ -196,19 +204,19 @@ export default function HostPanel() {
       <div className="bg-[#1A2D42] rounded-2xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest">Current phase</p>
-            <p className="text-[#F0EEE9] font-semibold capitalize mt-0.5">{session.phase}</p>
+            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest">Nåværende fase</p>
+            <p className="text-[#F0EEE9] font-semibold mt-0.5">{phaseLabel[session.phase] ?? session.phase}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-[#8A9BB0]">Round</p>
-            <p className="text-[#F0BB47] font-bold">{session.round}/{session.max_rounds}</p>
+            <p className="text-xs text-[#8A9BB0]">Runde</p>
+            <p className="text-[#EBB84B] font-bold">{session.round}/{session.max_rounds}</p>
           </div>
         </div>
 
         {session.world_event && (
           <div className="bg-[#0D1B2A] rounded-xl p-3">
-            <p className="text-xs text-[#8A9BB0] mb-1">Active world event</p>
-            <p className="text-[#F0BB47] font-semibold">{session.world_event.title}</p>
+            <p className="text-xs text-[#8A9BB0] mb-1">Aktiv verdenshendelse</p>
+            <p className="text-[#EBB84B] font-semibold">{session.world_event.title}</p>
             <p className="text-[#8A9BB0] text-xs mt-0.5">{session.world_event.description}</p>
             {session.narration && (
               <p className="text-[#F0EEE9] text-sm mt-2 italic">📣 {session.narration}</p>
@@ -242,7 +250,7 @@ export default function HostPanel() {
                   {director.narration && (
                     <p className="text-[#F0EEE9] text-sm italic">{director.narration}</p>
                   )}
-                  <p className="text-[#F0BB47] text-sm font-semibold">
+                  <p className="text-[#EBB84B] text-sm font-semibold">
                     Foreslår: {director.event.title}
                   </p>
                   <p className="text-[#8A9BB0] text-xs">{director.reasoning}</p>
@@ -268,19 +276,19 @@ export default function HostPanel() {
             session.phase === 'ended' ||
             (session.phase === 'lobby' && players.length < 1)
           }
-          className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full bg-[#EBB84B] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? 'Working…' : phaseButtonLabel[session.phase]}
+          {loading ? 'Jobber…' : phaseButtonLabel[session.phase]}
         </button>
         {!isHost && (
-          <p className="text-center text-[#8A9BB0] text-xs">View only — open this game on the host device to control it.</p>
+          <p className="text-center text-[#8A9BB0] text-xs">Kun visning — åpne dette spillet på vertsenheten for å styre det.</p>
         )}
       </div>
 
       {/* Players list */}
       <div className="bg-[#1A2D42] rounded-2xl p-4">
         <p className="text-xs text-[#8A9BB0] uppercase tracking-widest mb-3">
-          Players ({players.length})
+          Spillere ({players.length})
         </p>
         <div className="space-y-2">
           {players
@@ -291,12 +299,12 @@ export default function HostPanel() {
                   <span className="text-[#8A9BB0] text-sm w-5">{i + 1}.</span>
                   <div>
                     <span className="text-[#F0EEE9] text-sm">{p.name}</span>
-                    <span className="text-[#8A9BB0] text-xs ml-2 capitalize">{p.role}</span>
+                    <span className="text-[#8A9BB0] text-xs ml-2">{ROLE_LABELS[p.role]}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-[#8A9BB0]">{p.trade_count} trades</span>
-                  <span className="text-[#F0BB47] font-bold">{p.score} pts</span>
+                  <span className="text-xs text-[#8A9BB0]">{p.trade_count} handler</span>
+                  <span className="text-[#EBB84B] font-bold">{p.score} p</span>
                 </div>
               </div>
             ))}

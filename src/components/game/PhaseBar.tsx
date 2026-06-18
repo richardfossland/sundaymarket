@@ -21,28 +21,28 @@ export default function PhaseBar({ session }: { session: Session }) {
   }, [session.phase, session.phase_started_at, session.trade_seconds])
 
   const phaseLabel: Record<string, string> = {
-    lobby:      'Waiting to start',
-    production: 'Production',
-    trading:    'Trading open',
-    building:   'Building phase',
-    ended:      'Game over',
+    lobby:      'Venter på start',
+    production: 'Produksjon',
+    trading:    'Handel åpen',
+    building:   'Byggefase',
+    ended:      'Spillet er over',
   }
 
   return (
     <div className="bg-[#1A2D42] border-b border-[#243D57] px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <div className="flex flex-col">
-          <span className="text-xs text-[#8A9BB0]">Round {session.round}/{session.max_rounds}</span>
+          <span className="text-xs text-[#8A9BB0]">Runde {session.round}/{session.max_rounds}</span>
           <span className="text-sm font-medium text-[#F0EEE9]">{phaseLabel[session.phase]}</span>
         </div>
         {session.world_event && (
-          <div className="bg-[#243D57] rounded-lg px-2 py-1 text-xs text-[#F0BB47]">
+          <div className="bg-[#243D57] rounded-lg px-2 py-1 text-xs text-[#EBB84B]">
             {session.world_event.title}
           </div>
         )}
       </div>
       {secondsLeft !== null && (
-        <div className={`text-2xl font-bold tabular-nums ${secondsLeft < 30 ? 'text-[#E07B39]' : 'text-[#F0BB47]'}`}>
+        <div className={`text-2xl font-bold tabular-nums ${secondsLeft < 30 ? 'text-[#E07B39]' : 'text-[#EBB84B]'}`}>
           {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
         </div>
       )}

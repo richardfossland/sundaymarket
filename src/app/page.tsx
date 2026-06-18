@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { generateSessionCode, pickRandomRole, pickRandomMission } from '@/lib/game-helpers'
+import InlineError from '@/components/InlineError'
 
 export default function HomePage() {
   const router = useRouter()
@@ -15,7 +16,7 @@ export default function HomePage() {
 
   async function joinGame() {
     setError('')
-    if (!code.trim() || !name.trim()) { setError('Enter both a session code and your name.'); return }
+    if (!code.trim() || !name.trim()) { setError('Skriv inn både spillkode og navn.'); return }
     setLoading(true)
 
     const { data: session } = await supabase
@@ -24,8 +25,8 @@ export default function HomePage() {
       .eq('code', code.toUpperCase().trim())
       .single()
 
-    if (!session) { setError('Session not found. Check the code.'); setLoading(false); return }
-    if (session.phase !== 'lobby') { setError('This game has already started.'); setLoading(false); return }
+    if (!session) { setError('Fant ikke spillet. Sjekk koden.'); setLoading(false); return }
+    if (session.phase !== 'lobby') { setError('Dette spillet har allerede startet.'); setLoading(false); return }
 
     const { data: existingPlayers } = await supabase
       .from('players')
@@ -42,7 +43,7 @@ export default function HomePage() {
       .select()
       .single()
 
-    if (insertError || !player) { setError('Could not join. Try again.'); setLoading(false); return }
+    if (insertError || !player) { setError('Kunne ikke bli med. Prøv igjen.'); setLoading(false); return }
 
     localStorage.setItem('sundaymarket_player_id', player.id)
     localStorage.setItem('sundaymarket_session_id', session.id)
@@ -66,12 +67,12 @@ export default function HomePage() {
 
       if (data) { session = data; break }
       if (err && err.code !== '23505') {
-        setError('Could not create session.'); setLoading(false); return
+        setError('Kunne ikke opprette spill.'); setLoading(false); return
       }
       // else: duplicate code — loop and try another
     }
 
-    if (!session) { setError('Could not create session. Try again.'); setLoading(false); return }
+    if (!session) { setError('Kunne ikke opprette spill. Prøv igjen.'); setLoading(false); return }
 
     localStorage.setItem('sundaymarket_host_id', hostId)
     router.push(`/host/${session.id}`)
@@ -81,8 +82,8 @@ export default function HomePage() {
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
       {/* Logo / Title */}
       <div className="mb-10 text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-[#F0BB47]">SundayMarket</h1>
-        <p className="mt-2 text-[#8A9BB0] text-sm">A trading game. No player wins alone.</p>
+        <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-[#EBB84B]">SundayMarket</h1>
+        <p className="mt-2 text-[#8A9BB0] text-sm">Et byttehandelsspill. Ingen vinner alene.</p>
       </div>
 
       {/* Mode toggle */}
@@ -90,18 +91,18 @@ export default function HomePage() {
         <button
           onClick={() => setMode('join')}
           className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
-            mode === 'join' ? 'bg-[#F0BB47] text-[#0D1B2A]' : 'text-[#8A9BB0]'
+            mode === 'join' ? 'bg-[#EBB84B] text-[#0D1B2A]' : 'text-[#8A9BB0]'
           }`}
         >
-          Join game
+          Bli med
         </button>
         <button
           onClick={() => setMode('host')}
           className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
-            mode === 'host' ? 'bg-[#F0BB47] text-[#0D1B2A]' : 'text-[#8A9BB0]'
+            mode === 'host' ? 'bg-[#EBB84B] text-[#0D1B2A]' : 'text-[#8A9BB0]'
           }`}
         >
-          Host a game
+          Vert et spill
         </button>
       </div>
 
@@ -110,39 +111,37 @@ export default function HomePage() {
           <>
             <input
               type="text"
-              placeholder="Session code (e.g. OAK-42)"
+              placeholder="Spillkode (f.eks. OAK-42)"
               value={code}
               onChange={e => setCode(e.target.value.toUpperCase())}
-              className="w-full bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-3 text-[#F0EEE9] placeholder-[#8A9BB0] focus:outline-none focus:border-[#F0BB47] uppercase tracking-widest text-center text-xl"
+              className="w-full bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-3 text-[#F0EEE9] placeholder-[#8A9BB0] focus:outline-none focus:border-[#EBB84B] uppercase tracking-widest text-center text-xl"
             />
             <input
               type="text"
-              placeholder="Your name"
+              placeholder="Ditt navn"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-3 text-[#F0EEE9] placeholder-[#8A9BB0] focus:outline-none focus:border-[#F0BB47]"
+              className="w-full bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-3 text-[#F0EEE9] placeholder-[#8A9BB0] focus:outline-none focus:border-[#EBB84B]"
             />
             <button
               onClick={joinGame}
               disabled={loading}
-              className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-50"
+              className="w-full bg-[#EBB84B] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-50"
             >
-              {loading ? 'Joining…' : 'Join game →'}
+              {loading ? 'Blir med…' : 'Bli med →'}
             </button>
           </>
         ) : (
           <button
             onClick={createSession}
             disabled={loading}
-            className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-50"
+            className="w-full bg-[#EBB84B] text-[#0D1B2A] font-bold py-3 rounded-xl disabled:opacity-50"
           >
-            {loading ? 'Creating…' : 'Create new session →'}
+            {loading ? 'Oppretter…' : 'Opprett nytt spill →'}
           </button>
         )}
 
-        {error && (
-          <p className="text-[#E07B39] text-sm text-center">{error}</p>
-        )}
+        {error && <InlineError onDismiss={() => setError('')}>{error}</InlineError>}
       </div>
     </main>
   )
