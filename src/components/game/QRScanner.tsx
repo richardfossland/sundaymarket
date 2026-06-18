@@ -29,7 +29,7 @@ export default function QRScanner({ onScan, onClose }: Props) {
         onClick={onClose}
         className="w-full py-2 text-[#8A9BB0] text-sm border-t border-[#243D57] bg-[#1A2D42]"
       >
-        Cancel
+        Avbryt
       </button>
     </div>
   )

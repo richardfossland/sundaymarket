@@ -27,7 +27,7 @@ export default function PriceHint({ sessionId }: { sessionId: string }) {
                     ? 'text-[#E07B39]'
                     : 'text-[#8A9BB0]'
               }`}
-              aria-label={direction > 0 ? 'up' : direction < 0 ? 'down' : 'unchanged'}
+              aria-label={direction > 0 ? 'opp' : direction < 0 ? 'ned' : 'uendret'}
             >
               {direction > 0 ? '▲' : direction < 0 ? '▼' : '–'}
             </span>

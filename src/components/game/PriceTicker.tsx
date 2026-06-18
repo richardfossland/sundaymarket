@@ -12,7 +12,7 @@ export default function PriceTicker({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="bg-[#1A2D42] rounded-2xl p-6">
-      <p className="text-[#8A9BB0] text-sm uppercase tracking-widest mb-4">Exchange board</p>
+      <p className="text-[#8A9BB0] text-sm uppercase tracking-widest mb-4">Børstavle</p>
       <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
         {prices.map(({ resource, price, direction }) => (
           <div key={resource} className="flex items-center gap-3">
@@ -36,7 +36,7 @@ export default function PriceTicker({ sessionId }: { sessionId: string }) {
                         ? 'text-[#E07B39]'
                         : 'text-[#8A9BB0]'
                   }`}
-                  aria-label={direction > 0 ? 'up' : direction < 0 ? 'down' : 'unchanged'}
+                  aria-label={direction > 0 ? 'opp' : direction < 0 ? 'ned' : 'uendret'}
                 >
                   {direction > 0 ? '▲' : direction < 0 ? '▼' : '–'}
                 </span>

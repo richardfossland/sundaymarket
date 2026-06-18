@@ -3,9 +3,10 @@ import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { Player, Session, Trade, Resources } from '@/types/game'
 import { createClient } from '@/lib/supabase/client'
-import { RESOURCE_EMOJIS, EMPTY_RESOURCES } from '@/lib/constants'
+import { RESOURCE_EMOJIS, RESOURCE_LABELS, ROLE_LABELS, EMPTY_RESOURCES } from '@/lib/constants'
 import { formatResources } from '@/lib/game-helpers'
 import { QRCodeSVG } from 'qrcode.react'
+import InlineError from '@/components/InlineError'
 import PriceHint from './PriceHint'
 
 // html5-qrcode is a browser-only (CommonJS) package — load it client-side only.
@@ -36,7 +37,7 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
     supabase.from('players').select('*').eq('id', targetPlayerId).single()
       .then(({ data }) => {
         if (data) { setTargetPlayer(data); setView('offer') }
-        else { setFeedback('Player not found.'); setView('main') }
+        else { setFeedback('Fant ikke spilleren.'); setView('main') }
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetPlayerId])
@@ -44,14 +45,14 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
   async function sendOffer() {
     if (!targetPlayer) return
     if (targetPlayer.id === player.id) {
-      setFeedback('You can’t trade with yourself.'); setView('main'); setTargetPlayer(null); setTargetPlayerId(null); return
+      setFeedback('Du kan ikke handle med deg selv.'); setView('main'); setTargetPlayer(null); setTargetPlayerId(null); return
     }
     if (targetPlayer.session_id !== player.session_id) {
-      setFeedback('That player is in a different game.'); setView('main'); setTargetPlayer(null); setTargetPlayerId(null); return
+      setFeedback('Den spilleren er i et annet spill.'); setView('main'); setTargetPlayer(null); setTargetPlayerId(null); return
     }
     const totalOffer   = Object.values(offer).reduce((a, b) => a + b, 0)
     const totalRequest = Object.values(request).reduce((a, b) => a + b, 0)
-    if (totalOffer === 0 && totalRequest === 0) { setFeedback('Add something to the trade.'); return }
+    if (totalOffer === 0 && totalRequest === 0) { setFeedback('Legg noe i handelen.'); return }
 
     const { error } = await supabase.from('trades').insert({
       session_id:   session.id,
@@ -62,8 +63,8 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
       status: 'pending',
     })
 
-    if (error) { setFeedback('Could not send offer.'); return }
-    setFeedback(`Offer sent to ${targetPlayer.name}. Waiting…`)
+    if (error) { setFeedback('Kunne ikke sende tilbud.'); return }
+    setFeedback(`Tilbud sendt til ${targetPlayer.name}. Venter…`)
     setView('main')
     setTargetPlayer(null)
     setTargetPlayerId(null)
@@ -78,14 +79,14 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
         p_receiver_id: player.id,
       })
       if (data?.success) {
-        setFeedback(`✅ Trade accepted!`)
+        setFeedback(`✅ Handel godtatt!`)
       } else {
         await supabase.from('trades').update({ status: 'rejected' }).eq('id', trade.id)
-        setFeedback(`Trade failed: ${data?.error}`)
+        setFeedback(`Handelen mislyktes: ${data?.error}`)
       }
     } else {
       await supabase.from('trades').update({ status: 'rejected' }).eq('id', trade.id)
-      setFeedback('Trade declined.')
+      setFeedback('Handel avslått.')
     }
     onTradeResolved(trade.id)
     setActiveTrade(null)
@@ -99,14 +100,14 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
       <div className="flex items-center justify-between py-2">
         <div className="flex items-center gap-2">
           <span className="text-xl">{RESOURCE_EMOJIS[label]}</span>
-          <span className="text-sm capitalize text-[#F0EEE9]">{label}</span>
+          <span className="text-sm text-[#F0EEE9]">{RESOURCE_LABELS[label]}</span>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => onChange(Math.max(0, value - 1))}
             className="w-8 h-8 bg-[#243D57] rounded-lg text-[#F0EEE9] font-bold"
           >-</button>
-          <span className="text-[#F0BB47] font-bold w-4 text-center">{value}</span>
+          <span className="text-[#EBB84B] font-bold w-4 text-center">{value}</span>
           <button
             onClick={() => onChange(Math.min(max ?? 99, value + 1))}
             className="w-8 h-8 bg-[#243D57] rounded-lg text-[#F0EEE9] font-bold"
@@ -122,7 +123,7 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
       <PriceHint sessionId={session.id} />
 
       {feedback && (
-        <div className="bg-[#1A2D42] border border-[#F0BB47]/30 rounded-xl p-3 mb-4 text-sm text-[#F0EEE9] text-center">
+        <div className="bg-[#1A2D42] border border-[#EBB84B]/30 rounded-xl p-3 mb-4 text-sm text-[#F0EEE9] text-center">
           {feedback}
           <button onClick={() => setFeedback(null)} className="ml-2 text-[#8A9BB0] text-xs">✕</button>
         </div>
@@ -135,9 +136,9 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
           onClick={() => { setActiveTrade(pendingTrades[0]); setView('incoming') }}
         >
           <p className="text-[#E07B39] font-semibold text-sm">
-            📬 {pendingTrades.length} incoming trade offer{pendingTrades.length > 1 ? 's' : ''}
+            📬 {pendingTrades.length} innkommende tilbud
           </p>
-          <p className="text-[#8A9BB0] text-xs mt-0.5">Tap to review</p>
+          <p className="text-[#8A9BB0] text-xs mt-0.5">Trykk for å se</p>
         </div>
       )}
 
@@ -145,39 +146,39 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
         <>
           {/* My QR code */}
           <div className="bg-[#1A2D42] rounded-2xl p-6 flex flex-col items-center mb-6">
-            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest mb-4">Your trading code</p>
+            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest mb-4">Din handelskode</p>
             <div className="bg-white p-3 rounded-xl">
               <QRCodeSVG value={player.id} size={160} />
             </div>
             <p className="text-[#F0EEE9] font-semibold mt-3">{player.name}</p>
-            <p className="text-[#8A9BB0] text-xs mt-0.5 capitalize">{player.role}</p>
+            <p className="text-[#8A9BB0] text-xs mt-0.5">{ROLE_LABELS[player.role]}</p>
           </div>
 
           {/* Scan button */}
           <button
             onClick={() => setView('scan')}
             disabled={!isTrading}
-            className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-4 rounded-xl text-lg disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full bg-[#EBB84B] text-[#0D1B2A] font-bold py-4 rounded-xl text-lg disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            📷 Scan to trade
+            📷 Skann for å handle
           </button>
           {!isTrading && (
             <p className="text-center text-[#8A9BB0] text-xs mt-2">
-              Trading opens in the trading phase
+              Handel åpner i handelsfasen
             </p>
           )}
 
           {/* Trade count */}
           <p className="text-center text-[#8A9BB0] text-sm mt-4">
-            Trades completed: <span className="text-[#F0BB47] font-bold">{player.trade_count}</span>
+            Handler fullført: <span className="text-[#EBB84B] font-bold">{player.trade_count}</span>
           </p>
         </>
       )}
 
       {view === 'scan' && (
         <div className="space-y-4">
-          <button onClick={() => setView('main')} className="text-[#8A9BB0] text-sm">← Back</button>
-          <p className="text-[#F0EEE9] font-semibold">Scan another player&apos;s QR code</p>
+          <button onClick={() => setView('main')} className="text-[#8A9BB0] text-sm">← Tilbake</button>
+          <p className="text-[#F0EEE9] font-semibold">Skann en annen spillers QR-kode</p>
           <QRScanner
             onScan={(result) => {
               setTargetPlayerId(result)
@@ -191,15 +192,15 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
       {view === 'offer' && targetPlayer && (
         <div className="space-y-4">
           <button onClick={() => { setView('main'); setTargetPlayer(null); setTargetPlayerId(null) }} className="text-[#8A9BB0] text-sm">
-            ← Back
+            ← Tilbake
           </button>
           <div className="text-center">
-            <p className="text-[#F0BB47] font-bold text-lg">{targetPlayer.name}</p>
-            <p className="text-[#8A9BB0] text-sm capitalize">{targetPlayer.role}</p>
+            <p className="text-[#EBB84B] font-bold text-lg">{targetPlayer.name}</p>
+            <p className="text-[#8A9BB0] text-sm">{ROLE_LABELS[targetPlayer.role]}</p>
           </div>
 
           <div className="bg-[#1A2D42] rounded-xl p-4">
-            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest mb-2">I will give</p>
+            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest mb-2">Jeg gir</p>
             {(['wood','stone','food','gold'] as const).map(r => (
               <ResourceStepper
                 key={r} label={r}
@@ -211,7 +212,7 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
           </div>
 
           <div className="bg-[#1A2D42] rounded-xl p-4">
-            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest mb-2">I want</p>
+            <p className="text-xs text-[#8A9BB0] uppercase tracking-widest mb-2">Jeg vil ha</p>
             {(['wood','stone','food','gold'] as const).map(r => (
               <ResourceStepper
                 key={r} label={r}
@@ -223,26 +224,26 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
 
           <button
             onClick={sendOffer}
-            className="w-full bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl"
+            className="w-full bg-[#EBB84B] text-[#0D1B2A] font-bold py-3 rounded-xl"
           >
-            Send offer →
+            Send tilbud →
           </button>
         </div>
       )}
 
       {view === 'incoming' && activeTrade && (
         <div className="space-y-4">
-          <p className="text-[#F0EEE9] font-semibold">Incoming trade offer</p>
+          <p className="text-[#F0EEE9] font-semibold">Innkommende tilbud</p>
 
           <div className="bg-[#1A2D42] rounded-xl p-4 space-y-3">
             <div>
-              <p className="text-xs text-[#8A9BB0] mb-1">They give you</p>
-              <p className="text-[#4A8C5C] font-medium">{formatResources(activeTrade.offer) || 'Nothing'}</p>
+              <p className="text-xs text-[#8A9BB0] mb-1">De gir deg</p>
+              <p className="text-[#4A8C5C] font-medium">{formatResources(activeTrade.offer) || 'Ingenting'}</p>
             </div>
             <div className="border-t border-[#243D57]" />
             <div>
-              <p className="text-xs text-[#8A9BB0] mb-1">They want from you</p>
-              <p className="text-[#E07B39] font-medium">{formatResources(activeTrade.request) || 'Nothing'}</p>
+              <p className="text-xs text-[#8A9BB0] mb-1">De vil ha av deg</p>
+              <p className="text-[#E07B39] font-medium">{formatResources(activeTrade.request) || 'Ingenting'}</p>
             </div>
           </div>
 
@@ -251,13 +252,13 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
               onClick={() => respondToTrade(activeTrade, false)}
               className="bg-[#1A2D42] border border-[#E07B39] text-[#E07B39] font-bold py-3 rounded-xl"
             >
-              Decline
+              Avslå
             </button>
             <button
               onClick={() => respondToTrade(activeTrade, true)}
-              className="bg-[#F0BB47] text-[#0D1B2A] font-bold py-3 rounded-xl"
+              className="bg-[#EBB84B] text-[#0D1B2A] font-bold py-3 rounded-xl"
             >
-              Accept ✓
+              Godta ✓
             </button>
           </div>
 
@@ -271,7 +272,7 @@ export default function TradeTab({ player, session, pendingTrades, onTradeResolv
               }}
               className="w-full text-[#8A9BB0] text-sm"
             >
-              Skip ({pendingTrades.length - 1} more)
+              Hopp over ({pendingTrades.length - 1} til)
             </button>
           )}
         </div>

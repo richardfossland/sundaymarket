@@ -19,7 +19,7 @@ export default function GameEntryPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-[#8A9BB0]">Loading…</div>
+      <div className="text-[#8A9BB0]">Laster…</div>
     </div>
   )
 }
