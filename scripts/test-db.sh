@@ -28,4 +28,10 @@ docker cp supabase/tests/game_logic_test.sql "$NAME:/tmp/game_logic_test.sql" >/
 OUT=$(docker exec "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q -f /tmp/game_logic_test.sql 2>&1)
 echo "$OUT" | grep -E "PASS|FAIL" || true
 echo "$OUT" | grep -q "ALL GAME-LOGIC TESTS PASSED" || { echo "TESTS FAILED"; exit 1; }
+
+echo "→ security assertions (audit 2026-06-13: #1 players UPDATE revoke, #8 negative-trade CHECK)"
+docker cp supabase/tests/security_test.sql "$NAME:/tmp/security_test.sql" >/dev/null
+OUT=$(docker exec "$NAME" psql -U postgres -v ON_ERROR_STOP=1 -q -f /tmp/security_test.sql 2>&1)
+echo "$OUT" | grep -E "PASS|FAIL" || true
+echo "$OUT" | grep -q "ALL SECURITY TESTS PASSED" || { echo "TESTS FAILED"; echo "$OUT" | tail -20; exit 1; }
 echo "✓ all database checks passed"
