@@ -15,6 +15,8 @@ export default function HostPanel() {
   const [players,  setPlayers]  = useState<Player[]>([])
   const [loading,  setLoading]  = useState(false)
   const [isHost,   setIsHost]   = useState(false)
+  // The host_id bearer token (localStorage). set_phase authorises on it server-side.
+  const [hostId,   setHostId]   = useState<string | null>(null)
 
   // AI "town crier" director suggestion for the NEXT round (pending host action).
   // null = none asked for yet. Always carries a VALIDATED event from the server.
@@ -32,12 +34,13 @@ export default function HostPanel() {
   const PRODUCTION_MS = 3000
 
   useEffect(() => {
-    const hostId = localStorage.getItem('sundaymarket_host_id')
-    if (!hostId) { router.push('/'); return }
+    const hid = localStorage.getItem('sundaymarket_host_id')
+    if (!hid) { router.push('/'); return }
+    setHostId(hid)
 
     supabase.from('sessions').select('*').eq('id', sessionId).single()
       .then(({ data }) => {
-        if (data && data.host_id === hostId) { setSession(data); setIsHost(true) }
+        if (data && data.host_id === hid) { setSession(data); setIsHost(true) }
         else if (data) { setSession(data) } // viewer without control
       })
 
@@ -69,27 +72,30 @@ export default function HostPanel() {
     const elapsed = Date.now() - new Date(session.phase_started_at).getTime()
     const delay = Math.max(0, PRODUCTION_MS - elapsed)
     const id = setTimeout(() => {
-      supabase.from('sessions')
-        .update({ phase: 'trading', phase_started_at: new Date().toISOString() })
-        .eq('id', sessionId)
-        .eq('phase', 'production')
+      if (!hostId) return
+      // expected_phase:'production' keeps concurrent host tabs a safe no-op.
+      supabase.rpc('set_phase', {
+        p_session_id: sessionId, p_host_id: hostId,
+        p_phase: 'trading', p_expected_phase: 'production',
+      })
     }, delay)
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHost, session?.phase, session?.phase_started_at])
+  }, [isHost, session?.phase, session?.phase_started_at, hostId])
 
   // Start a production round. By default rolls a random world event (unchanged
   // behavior). If the host one-tapped the AI town crier's suggestion, that
   // server-VALIDATED event + narration is passed in instead.
   async function beginProduction(round: number, override?: { event: WorldEvent; narration: string }) {
+    if (!hostId) return
     const event = override?.event ?? WORLD_EVENTS[Math.floor(Math.random() * WORLD_EVENTS.length)]
-    await supabase.from('sessions').update({
-      phase: 'production',
-      round,
-      world_event: event,
-      narration: override?.narration ?? null,
-      phase_started_at: new Date().toISOString(),
-    }).eq('id', sessionId)
+    // '' (not null) clears any stale narration when there's no AI suggestion —
+    // set_phase treats '' as "clear", null as "leave unchanged".
+    await supabase.rpc('set_phase', {
+      p_session_id: sessionId, p_host_id: hostId,
+      p_phase: 'production', p_round: round,
+      p_world_event: event, p_narration: override?.narration ?? '',
+    })
     await supabase.rpc('run_production', { p_session_id: sessionId })
     setDirector(null) // consumed
   }
@@ -129,7 +135,7 @@ export default function HostPanel() {
   }
 
   async function advancePhase() {
-    if (!session || !isHost) return
+    if (!session || !isHost || !hostId) return
     setLoading(true)
 
     // If the host asked the town crier and applied the suggestion, hand the
@@ -143,13 +149,18 @@ export default function HostPanel() {
       await beginProduction(1, override)
     } else if (session.phase === 'production') {
       // Manual override: open trading immediately.
-      await supabase.from('sessions')
-        .update({ phase: 'trading', phase_started_at: new Date().toISOString() })
-        .eq('id', sessionId).eq('phase', 'production')
+      await supabase.rpc('set_phase', {
+        p_session_id: sessionId, p_host_id: hostId,
+        p_phase: 'trading', p_expected_phase: 'production',
+      })
     } else if (session.phase === 'trading') {
       // Close the market: expire any unanswered offers, then open building.
       await supabase.rpc('expire_pending_trades', { p_session_id: sessionId })
-      await supabase.from('sessions').update({ phase: 'building' }).eq('id', sessionId)
+      // → building keeps the trading phase_started_at (no new stamp).
+      await supabase.rpc('set_phase', {
+        p_session_id: sessionId, p_host_id: hostId,
+        p_phase: 'building', p_set_started: false,
+      })
     } else if (session.phase === 'building') {
       if (session.round >= session.max_rounds) {
         // finalize_game resolves end-game missions AND flips phase to 'ended'.
