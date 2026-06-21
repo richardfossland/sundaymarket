@@ -7,7 +7,6 @@ import InlineError from '@/components/InlineError'
 
 export default function HomePage() {
   const router = useRouter()
-  const supabase = createClient()
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,6 +14,10 @@ export default function HomePage() {
   const [mode, setMode] = useState<'join' | 'host'>('join')
 
   async function joinGame() {
+    // Construct the data client lazily inside the handler (not in the component
+    // body) so `/` prerenders at build without NEXT_PUBLIC_SUPABASE_* env — see
+    // createSession. Hoisting this back re-breaks `cf:build` (prerender of `/`).
+    const supabase = createClient()
     setError('')
     if (!code.trim() || !name.trim()) { setError('Skriv inn både spillkode og navn.'); return }
     setLoading(true)
@@ -51,6 +54,7 @@ export default function HomePage() {
   }
 
   async function createSession() {
+    const supabase = createClient() // lazy — keeps `/` statically prerenderable (see joinGame)
     setError('')
     setLoading(true)
     const hostId = crypto.randomUUID()
