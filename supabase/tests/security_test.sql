@@ -118,7 +118,7 @@ begin
   insert into market.players (session_id, name, role, mission, resources)
     values (s, 'B', 'farmer', 'm', '{"wood":10,"stone":10,"food":10,"gold":10}') returning id into p2;
   insert into market.players (session_id, name, role, mission, resources)
-    values (s, 'C', 'miner', 'm', '{"wood":10,"stone":10,"food":10,"gold":10}') returning id into p3;
+    values (s, 'C', 'goldminer', 'm', '{"wood":10,"stone":10,"food":10,"gold":10}') returning id into p3;
   insert into market.trades (session_id, initiator_id, receiver_id, offer, request)
     values (s, p1, p2, '{"wood":1,"stone":0,"food":0,"gold":0}', '{"wood":2,"stone":0,"food":0,"gold":0}');
   assert not has_table_privilege('anon', 'market.trades', 'DELETE'),
