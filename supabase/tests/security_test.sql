@@ -104,4 +104,59 @@ begin
   raise notice 'PASS 0006 1B: sessions UPDATE locked; set_phase host-gated + guarded';
 end $$;
 
+-- 0007 — trades write-tamper lock. An untrusted (anon) writer may only flip a
+-- pending trade to rejected/expired; economic + party columns are frozen, and
+-- DELETE is revoked. The SECURITY DEFINER path (postgres) is unaffected.
+do $$
+declare
+  s uuid; p1 uuid; p2 uuid; p3 uuid; tr uuid;
+  blocked boolean;
+begin
+  insert into market.sessions (code, host_id, phase) values ('SEC07', 'h', 'trading') returning id into s;
+  insert into market.players (session_id, name, role, mission, resources)
+    values (s, 'A', 'lumberjack', 'm', '{"wood":10,"stone":10,"food":10,"gold":10}') returning id into p1;
+  insert into market.players (session_id, name, role, mission, resources)
+    values (s, 'B', 'farmer', 'm', '{"wood":10,"stone":10,"food":10,"gold":10}') returning id into p2;
+  insert into market.players (session_id, name, role, mission, resources)
+    values (s, 'C', 'miner', 'm', '{"wood":10,"stone":10,"food":10,"gold":10}') returning id into p3;
+  insert into market.trades (session_id, initiator_id, receiver_id, offer, request)
+    values (s, p1, p2, '{"wood":1,"stone":0,"food":0,"gold":0}', '{"wood":2,"stone":0,"food":0,"gold":0}')
+    returning id into tr;
+
+  assert not has_table_privilege('anon', 'market.trades', 'DELETE'),
+    '0007: anon can still DELETE trades';
+  assert has_table_privilege('anon', 'market.trades', 'INSERT'),
+    '0007: anon unexpectedly lost INSERT on trades (legit propose path)';
+
+  set role anon;
+  -- legit: decline a pending trade
+  update market.trades set status = 'rejected' where id = tr;
+
+  -- forbidden: inflate the request amount
+  blocked := false;
+  begin
+    update market.trades set request = '{"wood":9999,"stone":0,"food":0,"gold":0}' where id = tr;
+  exception when others then blocked := true; end;
+  assert blocked, '0007: untrusted writer could rewrite a trade request amount';
+
+  -- forbidden: repoint the receiver
+  blocked := false;
+  begin
+    update market.trades set receiver_id = p3 where id = tr;
+  exception when others then blocked := true; end;
+  assert blocked, '0007: untrusted writer could repoint a trade party';
+
+  -- forbidden: forge an accepted status directly (only the RPC may)
+  blocked := false;
+  begin
+    update market.trades set status = 'accepted' where id = tr;
+  exception when others then blocked := true; end;
+  assert blocked, '0007: untrusted writer could forge status=accepted';
+  reset role;
+
+  assert (select status from market.trades where id = tr) = 'rejected',
+    '0007: the legit reject did not persist / a forbidden write leaked through';
+  raise notice 'PASS 0007: trade economic/party columns frozen for untrusted writers; only reject/expire allowed; DELETE revoked';
+end $$;
+
 select 'ALL SECURITY TESTS PASSED' as result;
