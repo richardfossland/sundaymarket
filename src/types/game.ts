@@ -71,7 +71,10 @@ export interface Price {
 export interface Session {
   id: string
   code: string
-  host_id: string
+  /** The host's bearer secret. Hidden from anon/authenticated SELECT (migration
+   * 0008) and never read by the client anymore — ownership is checked via the
+   * is_host RPC — so it is optional/absent in fetched Session rows. */
+  host_id?: string
   /** OPTIONAL Sunday Account owner (auth.users id on the issuer project). NULL
    * for anonymously-created games. Only used by the host "my games" dashboard. */
   host_user_id: string | null
