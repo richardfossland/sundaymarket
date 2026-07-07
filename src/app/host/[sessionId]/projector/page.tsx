@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, SESSION_COLS } from '@/lib/supabase/client'
 import { Session, Player, Building } from '@/types/game'
 import PriceTicker from '@/components/game/PriceTicker'
 
@@ -17,7 +17,7 @@ export default function ProjectorView() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('sessions').select('*').eq('id', sessionId).single(),
+      supabase.from('sessions').select(SESSION_COLS).eq('id', sessionId).single(),
       supabase.from('players').select('*').eq('session_id', sessionId),
       supabase.from('buildings').select('*').eq('session_id', sessionId),
     ]).then(([{ data: s }, { data: p }, { data: b }]) => {

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, SESSION_COLS } from '@/lib/supabase/client'
 import { Player, Session, Trade } from '@/types/game'
 
 import ResourceTab from '@/components/game/ResourceTab'
@@ -32,7 +32,7 @@ export default function PlayPage() {
 
     Promise.all([
       supabase.from('players').select('*').eq('id', playerId).single(),
-      supabase.from('sessions').select('*').eq('id', sessionId).single(),
+      supabase.from('sessions').select(SESSION_COLS).eq('id', sessionId).single(),
     ]).then(([{ data: p }, { data: s }]) => {
       if (p) setPlayer(p)
       if (s) setSession(s)

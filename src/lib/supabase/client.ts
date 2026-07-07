@@ -25,3 +25,13 @@ export function createClient() {
     }
   )
 }
+
+/**
+ * Every public column of `sessions` EXCEPT `host_id`. anon/authenticated no
+ * longer have SELECT on host_id (migration 0008 — it is the host's bearer
+ * secret), so reads must list columns explicitly instead of `select('*')`,
+ * which would fail on the revoked column. "Am I the host?" is answered by the
+ * `is_host` RPC, never by reading the secret.
+ */
+export const SESSION_COLS =
+  'id,code,phase,round,max_rounds,trade_seconds,phase_started_at,world_event,created_at,narration,host_user_id'

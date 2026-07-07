@@ -75,8 +75,10 @@ begin
     '0006 1B: anon can still UPDATE sessions';
   assert not has_table_privilege('authenticated', 'market.sessions', 'UPDATE'),
     '0006 1B: authenticated can still UPDATE sessions';
-  assert has_table_privilege('anon', 'market.sessions', 'SELECT'),
-    '0006 1B: anon unexpectedly lost SELECT on sessions';
+  -- 0008 replaced the table-level SELECT with column-level grants (host_id
+  -- hidden), so check a public column rather than table-level SELECT.
+  assert has_column_privilege('anon', 'market.sessions', 'phase', 'SELECT'),
+    '0006 1B: anon unexpectedly lost SELECT on the public sessions columns';
 
   insert into market.sessions (code, host_id, phase) values ('SEC06B', 'secret-host', 'lobby') returning id into s;
 
@@ -164,6 +166,29 @@ begin
   select t.status into st from market.trades t join market.sessions s on s.id = t.session_id where s.code = 'SEC07';
   assert st = 'rejected', '0007: the legit reject did not persist / a forbidden write leaked through';
   raise notice 'PASS 0007: trade economic/party columns frozen for untrusted writers; only reject/expire allowed; DELETE revoked';
+end $$;
+
+-- 0008 — the host bearer secret (sessions.host_id) is hidden from anon/
+-- authenticated, the rest of the row stays readable, and is_host() answers
+-- ownership without exposing the secret.
+do $$
+declare s uuid;
+begin
+  assert not has_column_privilege('anon', 'market.sessions', 'host_id', 'SELECT'),
+    '0008: anon can still SELECT sessions.host_id (bearer secret leaks)';
+  assert not has_column_privilege('authenticated', 'market.sessions', 'host_id', 'SELECT'),
+    '0008: authenticated can still SELECT sessions.host_id';
+  assert has_column_privilege('anon', 'market.sessions', 'phase', 'SELECT'),
+    '0008: anon unexpectedly lost SELECT on a public sessions column';
+  assert has_column_privilege('anon', 'market.sessions', 'code', 'SELECT'),
+    '0008: anon unexpectedly lost SELECT on sessions.code';
+
+  insert into market.sessions (code, host_id, phase) values ('SEC08', 'secret-bearer', 'lobby')
+    returning id into s;
+  assert market.is_host(s, 'secret-bearer') = true,  '0008: is_host rejected the real host bearer';
+  assert market.is_host(s, 'wrong-bearer')  = false, '0008: is_host accepted a wrong bearer';
+  assert market.is_host(s, null)            = false, '0008: is_host accepted a null bearer';
+  raise notice 'PASS 0008: host_id hidden from anon/authenticated; is_host gates on the bearer';
 end $$;
 
 select 'ALL SECURITY TESTS PASSED' as result;

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, SESSION_COLS } from '@/lib/supabase/client'
 import { Session, Player, WorldEvent } from '@/types/game'
 import { WORLD_EVENTS, ROLE_LABELS } from '@/lib/constants'
 
@@ -38,10 +38,18 @@ export default function HostPanel() {
     if (!hid) { router.push('/'); return }
     setHostId(hid)
 
-    supabase.from('sessions').select('*').eq('id', sessionId).single()
-      .then(({ data }) => {
-        if (data && data.host_id === hid) { setSession(data); setIsHost(true) }
-        else if (data) { setSession(data) } // viewer without control
+    // host_id is no longer readable by the client (0008) — verify ownership via
+    // the is_host RPC, which checks the localStorage bearer server-side without
+    // ever returning the secret.
+    supabase.from('sessions').select(SESSION_COLS).eq('id', sessionId).single()
+      .then(async ({ data }) => {
+        if (!data) return
+        setSession(data)
+        const { data: owner } = await supabase.rpc('is_host', {
+          p_session_id: sessionId,
+          p_host_id: hid,
+        })
+        if (owner === true) setIsHost(true) // else: viewer without control
       })
 
     supabase.from('players').select('*').eq('session_id', sessionId)

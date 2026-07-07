@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, SESSION_COLS } from '@/lib/supabase/client'
 import { generateSessionCode, pickRandomRole, pickRandomMission } from '@/lib/game-helpers'
 import InlineError from '@/components/InlineError'
 
@@ -24,7 +24,7 @@ export default function HomePage() {
 
     const { data: session } = await supabase
       .from('sessions')
-      .select('*')
+      .select(SESSION_COLS)
       .eq('code', code.toUpperCase().trim())
       .single()
 
@@ -79,7 +79,7 @@ export default function HomePage() {
       const { data, error: err } = await supabase
         .from('sessions')
         .insert({ code: generateSessionCode(), host_id: hostId, phase: 'lobby', round: 0, max_rounds: 6, ...ownerCols })
-        .select()
+        .select('id')
         .single()
 
       if (data) { session = data; break }
