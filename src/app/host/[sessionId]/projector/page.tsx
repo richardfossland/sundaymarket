@@ -4,11 +4,13 @@ import { useParams } from 'next/navigation'
 import { createClient, SESSION_COLS } from '@/lib/supabase/client'
 import { Session, Player, Building } from '@/types/game'
 import PriceTicker from '@/components/game/PriceTicker'
+import { useTavlevisning, AvsluttTavle } from '@/lib/client/storskjerm/TavleVisning'
 
 export default function ProjectorView() {
   const params    = useParams()
   const supabase  = createClient()
   const sessionId = params.sessionId as string
+  const presentasjon = useTavlevisning()
 
   const [session,   setSession]   = useState<Session | null>(null)
   const [players,   setPlayers]   = useState<Player[]>([])
@@ -70,7 +72,7 @@ export default function ProjectorView() {
   )
 
   return (
-    <div className="min-h-screen bg-[#0D1B2A] p-10 flex flex-col gap-8">
+    <div className={`min-h-screen bg-[#0D1B2A] p-10 flex flex-col gap-8${presentasjon ? ' presentasjon' : ''}`}>
       <div className="grid grid-cols-3 gap-8 items-start">
       {/* Left: World event + phase info */}
       <div className="space-y-6">
@@ -158,6 +160,8 @@ export default function ProjectorView() {
 
       {/* Live market price index — full-width exchange board ticker */}
       <PriceTicker sessionId={sessionId} />
+
+      {presentasjon && <AvsluttTavle hostHref={`/host/${sessionId}`} />}
     </div>
   )
 }
