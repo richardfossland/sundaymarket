@@ -1,0 +1,132 @@
+/* Storskjerm: veiviser + tavlevisning. Bruker bare suite-tokens fra appen
+ * (--ink-*, --accent via color-mix) så mappa kan kopieres til andre apper. */
+
+/* Lokale knapper/kort — appen har ingen delt .btn, så mappa bærer sine egne,
+ * bygget på appens tokens (--color-*). */
+.storskjerm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.storskjerm-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-muted);
+}
+.storskjerm-btn-primary {
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.storskjerm-btn-primary:hover {
+  color: var(--color-ink);
+  background: var(--color-gold-light);
+  border-color: var(--color-gold-light);
+}
+.storskjerm-muted {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.storskjerm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 0.6);
+}
+.storskjerm-panel {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.storskjerm-panel h3,
+.storskjerm-panel h4 {
+  margin: 0;
+}
+.storskjerm-kort {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+.storskjerm-kort h4 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.storskjerm-kort p,
+.storskjerm-kort ol {
+  margin: 0;
+}
+.storskjerm-kort ol {
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+.storskjerm-anbefalt {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+.storskjerm-merke {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.storskjerm-melding-ok {
+  font-weight: 600;
+}
+.storskjerm-melding-feil {
+  font-weight: 600;
+  color: #e5484d;
+}
+
+/* ---- Tavlevisning (?visning=tavle) ---- */
+.hide-cursor,
+.hide-cursor * {
+  cursor: none !important;
+}
+/* Luft mot overscan på TV/projektor (16:9-trygg ramme). */
+.presentasjon {
+  padding: 2vh 2.5vw;
+  box-sizing: border-box;
+}
+/* Ikke for publikum: nesten usynlig til hover. */
+.presentasjon-avslutt {
+  position: fixed;
+  bottom: 16px;
+  left: 20px;
+  min-height: 0;
+  z-index: 40;
+  padding: 6px 12px;
+  background: var(--color-surface);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.presentasjon-avslutt:hover,
+.presentasjon-avslutt:focus-visible {
+  opacity: 1;
+}

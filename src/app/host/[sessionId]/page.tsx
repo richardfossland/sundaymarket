@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient, SESSION_COLS } from '@/lib/supabase/client'
 import { Session, Player, WorldEvent } from '@/types/game'
 import { WORLD_EVENTS, ROLE_LABELS } from '@/lib/constants'
+import { StorskjermButton } from '@/lib/client/storskjerm/StorskjermButton'
 
 export default function HostPanel() {
   const params    = useParams()
@@ -211,12 +212,15 @@ export default function HostPanel() {
           <h1 className="font-display text-3xl font-bold text-[#EBB84B]">SundayMarket</h1>
           <p className="text-[#8A9BB0] text-sm">Spillkode: <span className="text-[#F0EEE9] font-bold tracking-widest">{session.code}</span></p>
         </div>
-        <button
-          onClick={() => router.push(`/host/${sessionId}/projector`)}
-          className="bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-2 text-sm text-[#F0EEE9]"
-        >
-          📺 Storskjerm
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push(`/host/${sessionId}/projector`)}
+            className="bg-[#1A2D42] border border-[#243D57] rounded-xl px-4 py-2 text-sm text-[#F0EEE9]"
+          >
+            📺 Storskjerm
+          </button>
+          <StorskjermButton projectorPath={`/host/${sessionId}/projector`} />
+        </div>
       </div>
 
       {/* Phase control */}
